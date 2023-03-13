@@ -1,0 +1,11 @@
+
+CMAKE_MINIMUM_REQUIRED(VERSION 3.12.1)
+PROJECT(openbuffer)
+
+include_directories(src)
+
+add_executable(test 
+	src/openbuffer.h 
+	src/openbuffer.cpp 
+	test/main.cpp
+)
