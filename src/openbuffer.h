@@ -11,6 +11,8 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
+#include <string>
 
 #ifndef DATA_BIG_ENDIAN
 #ifdef _BIG_ENDIAN_
@@ -55,28 +57,51 @@ class OpenBuffer
 	size_t readLen_;
 	size_t readOffset_;
 
+	char tmp[1024 * 8];
+
 	void merge();
 public:
 	OpenBuffer(size_t capacity = 256);
 	~OpenBuffer();
 
-	int64_t read(void* data, size_t len);
-	int64_t write(const void* data, const int len);
-
-	inline int64_t readUInt8(unsigned char& c)
+	int64_t push(const void* data, size_t len);
+	int64_t pop(void* data, size_t len);
+	int64_t push(const std::string& data) 
+	{ 
+		return push(data.data(), data.size()); 
+	}
+	int64_t pop(std::string& data, size_t len) 
 	{
-		return read(&c, 1);
+		data.resize(len);
+		return pop((void*)data.data(), data.size());
+	};
+	
+	inline int64_t pushUInt8(unsigned char c)
+	{
+		return push(&c, 1);
 	}
 
-	inline int64_t writeUInt8(unsigned char c)
+	inline int64_t popUInt8(unsigned char& c)
 	{
-		return write(&c, 1);
+		return pop(&c, 1);
 	}
 
-	inline int64_t readUInt16(unsigned short& w)
+	inline int64_t pushUInt16(unsigned short w)
+	{
+		char p[2] = { 0 };
+#if DATA_BIG_ENDIAN
+		* (unsigned char*)(p + 0) = (w & 255);
+		*(unsigned char*)(p + 1) = (w >> 8);
+#else
+		* (unsigned short*)(p) = w;
+#endif
+		return push(&p, sizeof(p));
+	}
+
+	inline int64_t popUInt16(unsigned short& w)
 	{
 		char p[2] = {0};
-		int64_t ret = read(p, sizeof(p));
+		int64_t ret = pop(p, sizeof(p));
 		if (ret >= 0)
 		{
 #if DATA_BIG_ENDIAN
@@ -89,22 +114,24 @@ public:
 		return ret;
 	}
 
-	inline int64_t writeUint16(unsigned short w)
-	{
-		char p[2] = { 0 };
-#if DATA_BIG_ENDIAN
-		*(unsigned char*)(p + 0) = (w & 255);
-		*(unsigned char*)(p + 1) = (w >> 8);
-#else
-		*(unsigned short*)(p) = w;
-#endif
-		return write(&p, sizeof(p));
-	}
-
-	inline int64_t readUInt32(uint32_t& l)
+	inline int64_t pushUInt32(uint32_t l)
 	{
 		char p[4] = { 0 };
-		int64_t ret = read(p, sizeof(p));
+#if DATA_BIG_ENDIAN
+		* (unsigned char*)(p + 0) = (unsigned char)((l >> 0) & 0xff);
+		*(unsigned char*)(p + 1) = (unsigned char)((l >> 8) & 0xff);
+		*(unsigned char*)(p + 2) = (unsigned char)((l >> 16) & 0xff);
+		*(unsigned char*)(p + 3) = (unsigned char)((l >> 24) & 0xff);
+#else
+		* (uint32_t*)p = l;
+#endif
+		return push(&p, sizeof(p));
+	}
+
+	inline int64_t popUInt32(uint32_t& l)
+	{
+		char p[4] = { 0 };
+		int64_t ret = pop(p, sizeof(p));
 		if (ret >= 0)
 		{
 #if DATA_BIG_ENDIAN
@@ -119,24 +146,28 @@ public:
 		return ret;
 	}
 
-	inline int64_t writeUInt32(uint32_t l)
+	inline int64_t pushUInt64(uint64_t l)
 	{
-		char p[4] = { 0 };
+		char p[8] = { 0 };
 #if DATA_BIG_ENDIAN
-		*(unsigned char*)(p + 0) = (unsigned char)((l >> 0) & 0xff);
+		* (unsigned char*)(p + 0) = (unsigned char)((l >> 0) & 0xff);
 		*(unsigned char*)(p + 1) = (unsigned char)((l >> 8) & 0xff);
 		*(unsigned char*)(p + 2) = (unsigned char)((l >> 16) & 0xff);
 		*(unsigned char*)(p + 3) = (unsigned char)((l >> 24) & 0xff);
+		*(unsigned char*)(p + 0) = (unsigned char)((l >> 32) & 0xff);
+		*(unsigned char*)(p + 1) = (unsigned char)((l >> 40) & 0xff);
+		*(unsigned char*)(p + 2) = (unsigned char)((l >> 48) & 0xff);
+		*(unsigned char*)(p + 3) = (unsigned char)((l >> 56) & 0xff);
 #else
-		*(uint32_t*)p = l;
+		* (uint64_t*)p = l;
 #endif
-		return write(&p, sizeof(p));
+		return push(&p, sizeof(p));
 	}
 
-	inline int64_t readUInt64(uint64_t& l)
+	inline int64_t popUInt64(uint64_t& l)
 	{
 		char p[8] = { 0 };
-		int64_t ret = read(p, sizeof(p));
+		int64_t ret = pop(p, sizeof(p));
 		if (ret >= 0)
 		{
 #if DATA_BIG_ENDIAN
@@ -155,26 +186,10 @@ public:
 		return ret;
 	}
 
-	inline int64_t writeUInt64(uint64_t l)
-	{
-		char p[8] = { 0 };
-#if DATA_BIG_ENDIAN
-		*(unsigned char*)(p + 0) = (unsigned char)((l >> 0) & 0xff);
-		*(unsigned char*)(p + 1) = (unsigned char)((l >> 8) & 0xff);
-		*(unsigned char*)(p + 2) = (unsigned char)((l >> 16) & 0xff);
-		*(unsigned char*)(p + 3) = (unsigned char)((l >> 24) & 0xff);
-		*(unsigned char*)(p + 0) = (unsigned char)((l >> 32) & 0xff);
-		*(unsigned char*)(p + 1) = (unsigned char)((l >> 40) & 0xff);
-		*(unsigned char*)(p + 2) = (unsigned char)((l >> 48) & 0xff);
-		*(unsigned char*)(p + 3) = (unsigned char)((l >> 56) & 0xff);
-#else
-		*(uint64_t*)p = l;
-#endif
-		return write(&p, sizeof(p));
-	}
-
+	int64_t pushVInt32(const uint32_t& n);
+	int64_t pushVInt64(const uint64_t& n);
+	int64_t popVInt64(uint64_t& n);
 };
-
 
 };
 

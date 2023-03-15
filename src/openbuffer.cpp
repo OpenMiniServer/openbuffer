@@ -50,7 +50,7 @@ OpenBuffer::~OpenBuffer()
 	}
 }
 
-int64_t OpenBuffer::read(void* data, size_t len)
+int64_t OpenBuffer::pop(void* data, size_t len)
 {
 	if (data == NULL || len <= 0) 
 	{
@@ -65,12 +65,19 @@ int64_t OpenBuffer::read(void* data, size_t len)
 	{
 		merge();
 	}
+	if (len == 0)
+	{
+		return size_;
+	}
 	if (!rbuffer_)
 	{
 		assert(false);
 		return -1;
 	}
-	memcpy(data, rbuffer_ + readOffset_, len);
+	if (data)
+	{
+		memcpy(data, rbuffer_ + readOffset_, len);
+	}
 	readLen_ -= len;
 	readOffset_ += len;
 	size_ -= len;
@@ -79,6 +86,10 @@ int64_t OpenBuffer::read(void* data, size_t len)
 
 void OpenBuffer::merge()
 {
+	if (size_ <= readLen_)
+	{
+		return;
+	}
 	unsigned char* origin = rbuffer_;
 	rbuffer_ = (unsigned char*)MALLOC(size_);
 	if (!rbuffer_)
@@ -111,9 +122,11 @@ void OpenBuffer::merge()
 	}
 	readLen_ = size_;
 	readOffset_ = 0;
+
+	memcpy(tmp, rbuffer_, readLen_);
 }
 
-int64_t OpenBuffer::write(const void* data, const int len)
+int64_t OpenBuffer::push(const void* data, size_t len)
 {
 	if (!tail_ || offset_ >= cap_ || len >= cap_ - offset_)
 	{
@@ -152,6 +165,92 @@ int64_t OpenBuffer::write(const void* data, const int len)
 	offset_ += len;
 	size_ += len;
 	return size_;
+}
+
+int64_t OpenBuffer::pushVInt32(const uint32_t& n)
+{
+	uint8_t p[10] = { 0 };
+	while (true)
+	{
+		if (n < 0x80) {
+			p[0] = (uint8_t)n;
+			break;
+		}
+		p[0] = (uint8_t)(n | 0x80);
+		if (n < 0x4000) {
+			p[1] = (uint8_t)(n >> 7);
+			break;
+		}
+		p[1] = (uint8_t)((n >> 7) | 0x80);
+		if (n < 0x200000) {
+			p[2] = (uint8_t)(n >> 14);
+			break;
+		}
+		p[2] = (uint8_t)((n >> 14) | 0x80);
+		if (n < 0x10000000) {
+			p[3] = (uint8_t)(n >> 21);
+			break;
+		}
+		p[3] = (uint8_t)((n >> 21) | 0x80);
+		p[4] = (uint8_t)(n >> 28);
+		break;
+	}
+	return push(&p, strlen((const char*)p));
+}
+
+int64_t OpenBuffer::pushVInt64(const uint64_t& n)
+{
+	if ((n & 0xffffffff) == n) {
+		return pushVInt32((uint32_t)n);
+	}
+	uint8_t p[10] = { 0 };
+	uint64_t num = n;
+	int64_t i = 0;
+	do {
+		p[i] = (uint8_t)(num | 0x80);
+		num >>= 7;
+		++i;
+	} while (num >= 0x80);
+	p[i] = (uint8_t)num;
+	return push(&p, strlen((const char*)p));
+}
+
+int64_t OpenBuffer::popVInt64(uint64_t& n)
+{
+	if (size_ <= 0) return -1;
+	if (size_ > readLen_)
+	{
+		merge();
+	}
+	if (size_ >= 1)
+	{
+		unsigned char* p = rbuffer_ + readOffset_;
+		if (!(p[0] & 0x80))
+		{
+			n = p[0];
+			readLen_ -= 1;
+			readOffset_ += 1;
+			size_ -= 1;
+			return size_;
+		}
+		if (size_ <= 1) return -1;
+	}
+	unsigned char* p = rbuffer_ + readOffset_;
+	uint32_t r = p[0] & 0x7f;
+	for (int i = 1; i < 10; i++)
+	{
+		r |= ((p[i] & 0x7f) << (7 * i));
+		if (!(p[i] & 0x80))
+		{
+			n = r;
+			++i;
+			readLen_ -= i;
+			readOffset_ += i;
+			size_ -= i;
+			return size_;
+		}
+	}
+	return -1;
 }
 
 
