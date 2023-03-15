@@ -1,5 +1,5 @@
 # OpenBuffer
-OpenBuffer 用于读写解析二进制流，针对网络数据流而设计。
+OpenBuffer 用于读写解析二进制流，解决TCP粘包问题，针对网络数据流而设计。
 
 **OpenLinyou开源项目致力于跨平台服务器框架，在VS或者XCode上写代码，无需任何改动就可以编译运行在Linux上，甚至是安卓和iOS.**
 OpenLinyou：https://github.com/openlinyou
