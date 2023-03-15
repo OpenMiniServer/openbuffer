@@ -1,5 +1,5 @@
-# openbuffer
-openbuffer 用于读写解析二进制流，针对网络数据流而设计。
+# OpenBuffer
+OpenBuffer 用于读写解析二进制流，针对网络数据流而设计。
 
 **OpenLinyou开源项目致力于跨平台服务器框架，在VS或者XCode上写代码，无需任何改动就可以编译运行在Linux上，甚至是安卓和iOS.**
 OpenLinyou：https://github.com/openlinyou
@@ -11,6 +11,7 @@ Windows、linux、Mac、iOS、Android等跨平台设计
 ## 编译和执行
 请安装cmake工具，用cmake可以构建出VS或者XCode工程，就可以在vs或者xcode上编译运行。
 源代码：https://github.com/openlinyou/openbuffer
+https://gitee.com/linyouhappy/openbuffer
 ```
 git clone https://github.com/openlinyou/openbuffer
 cd ./openbuffer
