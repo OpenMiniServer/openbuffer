@@ -56,15 +56,13 @@ class OpenBuffer
 	unsigned char* rbuffer_;
 	size_t readLen_;
 	size_t readOffset_;
-
-	char tmp[1024 * 8];
-
 	void merge();
 public:
 	OpenBuffer(size_t capacity = 256);
 	~OpenBuffer();
-
 	size_t inline size() { return size_; }
+	unsigned char* data() { merge(); return rbuffer_; }
+	void clear();
 	int64_t push(const void* data, size_t len);
 	int64_t pop(void* data, size_t len);
 	int64_t push(const std::string& data) 

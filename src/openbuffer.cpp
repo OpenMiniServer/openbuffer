@@ -32,8 +32,13 @@ OpenBuffer::OpenBuffer(size_t capacity)
 
 OpenBuffer::~OpenBuffer()
 {
-	Node* bnode = 0;
-	while(head_ != NULL)
+	clear();
+}
+
+void OpenBuffer::clear()
+{
+	Node* bnode = NULL;
+	while (head_ != NULL)
 	{
 		bnode = head_;
 		head_ = bnode->next_;
@@ -48,6 +53,10 @@ OpenBuffer::~OpenBuffer()
 		FREE(rbuffer_);
 		rbuffer_ = NULL;
 	}
+	size_    = 0;
+	offset_  = 0;
+	readLen_ = 0;
+	readOffset_ = 0;
 }
 
 int64_t OpenBuffer::pop(void* data, size_t len)
@@ -122,8 +131,6 @@ void OpenBuffer::merge()
 	}
 	readLen_ = size_;
 	readOffset_ = 0;
-
-	memcpy(tmp, rbuffer_, readLen_);
 }
 
 int64_t OpenBuffer::push(const void* data, size_t len)
