@@ -64,6 +64,7 @@ public:
 	OpenBuffer(size_t capacity = 256);
 	~OpenBuffer();
 
+	size_t inline size() { return size_; }
 	int64_t push(const void* data, size_t len);
 	int64_t pop(void* data, size_t len);
 	int64_t push(const std::string& data) 
