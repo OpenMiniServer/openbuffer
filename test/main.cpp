@@ -6,7 +6,8 @@
 
 using namespace open;
 
-int main()
+
+void test1()
 {
     OpenBuffer openBuffer;
 
@@ -18,7 +19,7 @@ int main()
     openBuffer.push(data, len);
  
     len = str.size();
-    openBuffer.pushUInt32(len);
+    openBuffer.pushUInt32((int)len);
     openBuffer.push(str.data(), len);
 
     openBuffer.pushUInt16(1616);
@@ -56,7 +57,6 @@ int main()
     openBuffer.popUInt64(u64);
     assert(u64 == 6464);
 
-
     uint64_t v32 = 0;
     openBuffer.popVInt64(v32);
     assert(v32 == 0x79);
@@ -76,6 +76,57 @@ int main()
     uint64_t v64 = 0;
     openBuffer.popVInt64(v64);
     assert(v64 == 0x10000001);
-    
-    return 0;
+}
+
+void test2()
+{
+    std::vector<std::string> datas = {
+        "HTTP/1.1 200 OK@&Connection: keep-alive@&Content-Type: application/x-javascript@&",
+        "Date: Sat, 18 Mar 2023 08:11:44 GMT@&Strict-Transport-Security: max-age=31536000@&Traceco",
+        "de: 24764974122629742602031816@&Vary: Accept-Encoding@&"
+    };
+    std::string body = "Hello OpenBuffer!!Hello OpenBuffer!!";
+    datas.push_back("content-length:" + std::to_string(body.size()) + "@&");
+    datas.push_back("@&" + body);
+    datas.push_back("@&");
+    OpenBuffer openBuffer;
+    for (size_t x = 0; x < 10000; x++)
+    {
+        openBuffer.clear();
+        bool isHeader = true;
+        size_t k = 0;
+        std::string head;
+        for (size_t i = 0; i < datas.size(); ++i)
+        {
+            openBuffer.push(datas[i].data(), datas[i].size());
+            if (isHeader)
+            {
+                unsigned char* tmp = openBuffer.data();
+                for (; k < openBuffer.size() - 3; k++)
+                {
+                    //find @&@&
+                    if (tmp[k] == '@' && tmp[k + 1] == '&' && tmp[k + 2] == '@' && tmp[k + 3] == '&')
+                        break;
+                }
+                if (k >= openBuffer.size() - 3) continue;
+
+                k += 4;
+                openBuffer.pop(head, k);
+                isHeader = false;
+            }
+        }
+        std::string test = body + "@&";
+        std::string buffer;
+        buffer.append((const char*)openBuffer.data(), openBuffer.size());
+        assert(test == buffer);
+    }
+    printf("congratulation complete\n");
+}
+
+int main()
+{
+    test1();
+    test2();
+    printf("Pause\n");
+    return getchar();
 }

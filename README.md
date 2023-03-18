@@ -35,6 +35,9 @@ The technical features of OpenBuffer:
 3. It supports reading and writing fixed length integers and unfixed length integers.
 
 
+## 1.Serialization and Deserialization
+Supports integer and variable length integer serialization. Adopt small end coding.
+
 ```C++
 #include <assert.h>
 #include <string.h>
@@ -115,6 +118,64 @@ int main()
     openBuffer.popVInt64(v64);
     assert(v64 == 0x10000001);
     
+    return 0;
+}
+```
+
+## 2. Parsing network data packets
+Simulate socket packets and parse http messages. Resolve HTTP packet contamination issues.
+
+```C++
+#include <assert.h>
+#include <string.h>
+#include <string>
+#include <vector>
+#include "openbuffer.h"
+
+using namespace open;
+
+int main()
+{
+    std::vector<std::string> datas = {
+        "HTTP/1.1 200 OK@&Connection: keep-alive@&Content-Type: application/x-javascript@&",
+        "Date: Sat, 18 Mar 2023 08:11:44 GMT@&Strict-Transport-Security: max-age=31536000@&Traceco",
+        "de: 24764974122629742602031816@&Vary: Accept-Encoding@&"
+    };
+    std::string body = "Hello OpenBuffer!!Hello OpenBuffer!!";
+    datas.push_back("content-length:" + std::to_string(body.size()) + "@&");
+    datas.push_back("@&" + body);
+    datas.push_back("@&");
+    OpenBuffer openBuffer;
+    for (size_t x = 0; x < 10000; x++)
+    {
+        openBuffer.clear();
+        bool isHeader = true;
+        size_t k = 0;
+        std::string head;
+        for (size_t i = 0; i < datas.size(); ++i)
+        {
+            openBuffer.push(datas[i].data(), datas[i].size());
+            if (isHeader)
+            {
+                unsigned char* tmp = openBuffer.data();
+                for (; k < openBuffer.size() - 3; k++)
+                {
+                    //find @&@&
+                    if (tmp[k] == '@' && tmp[k + 1] == '&' && tmp[k + 2] == '@' && tmp[k + 3] == '&')
+                        break;
+                }
+                if (k >= openBuffer.size() - 3) continue;
+
+                k += 4;
+                openBuffer.pop(head, k);
+                isHeader = false;
+            }
+        }
+        std::string test = body + "@&";
+        std::string buffer;
+        buffer.append((const char*)openBuffer.data(), openBuffer.size());
+        assert(test == buffer);
+    }
     return 0;
 }
 ```

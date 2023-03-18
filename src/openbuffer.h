@@ -40,35 +40,23 @@ namespace open
 
 class OpenBuffer 
 {
-	struct Node 
-	{
-		Node* next_;
-		size_t size_;
-		unsigned char* data_;
-	};
-
-	Node* head_;
-	Node* tail_;
-	size_t cap_;
 	size_t size_;
 	size_t offset_;
-
-	unsigned char* rbuffer_;
-	size_t readLen_;
-	size_t readOffset_;
-	void merge();
+	size_t cap_;
+	size_t miniCap_;
+	unsigned char* buffer_;
 public:
 	OpenBuffer(size_t capacity = 256);
 	~OpenBuffer();
 	size_t inline size() { return size_; }
-	unsigned char* data() { merge(); return rbuffer_; }
+	unsigned char* data() { return buffer_ + offset_; }
 	void clear();
 	int64_t push(const void* data, size_t len);
-	int64_t pop(void* data, size_t len);
 	int64_t push(const std::string& data) 
 	{ 
 		return push(data.data(), data.size()); 
 	}
+	int64_t pop(void* data, size_t len);
 	int64_t pop(std::string& data, size_t len) 
 	{
 		data.resize(len);

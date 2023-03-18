@@ -33,7 +33,8 @@ OpenBuffer的技术特点：
 2. 从OpenBuffer读取数据，先把全部节点上的数据进行合并，存储到连续的内存上，然后释放对应节点的内存。
 3. 支持读写固定长度整数和不固定长度整数。
 
-
+## 1.序列化与反序列化
+支持整数，可变长整数序列化。采用小端编码。
 ```C++
 #include <assert.h>
 #include <string.h>
@@ -114,6 +115,63 @@ int main()
     openBuffer.popVInt64(v64);
     assert(v64 == 0x10000001);
     
+    return 0;
+}
+```
+
+## 2.解析网络数据包
+模拟socket数据包，解析http报文。解决HTTP沾包问题。
+```C++
+#include <assert.h>
+#include <string.h>
+#include <string>
+#include <vector>
+#include "openbuffer.h"
+
+using namespace open;
+
+int main()
+{
+    std::vector<std::string> datas = {
+        "HTTP/1.1 200 OK@&Connection: keep-alive@&Content-Type: application/x-javascript@&",
+        "Date: Sat, 18 Mar 2023 08:11:44 GMT@&Strict-Transport-Security: max-age=31536000@&Traceco",
+        "de: 24764974122629742602031816@&Vary: Accept-Encoding@&"
+    };
+    std::string body = "Hello OpenBuffer!!Hello OpenBuffer!!";
+    datas.push_back("content-length:" + std::to_string(body.size()) + "@&");
+    datas.push_back("@&" + body);
+    datas.push_back("@&");
+    OpenBuffer openBuffer;
+    for (size_t x = 0; x < 10000; x++)
+    {
+        openBuffer.clear();
+        bool isHeader = true;
+        size_t k = 0;
+        std::string head;
+        for (size_t i = 0; i < datas.size(); ++i)
+        {
+            openBuffer.push(datas[i].data(), datas[i].size());
+            if (isHeader)
+            {
+                unsigned char* tmp = openBuffer.data();
+                for (; k < openBuffer.size() - 3; k++)
+                {
+                    //find @&@&
+                    if (tmp[k] == '@' && tmp[k + 1] == '&' && tmp[k + 2] == '@' && tmp[k + 3] == '&')
+                        break;
+                }
+                if (k >= openBuffer.size() - 3) continue;
+
+                k += 4;
+                openBuffer.pop(head, k);
+                isHeader = false;
+            }
+        }
+        std::string test = body + "@&";
+        std::string buffer;
+        buffer.append((const char*)openBuffer.data(), openBuffer.size());
+        assert(test == buffer);
+    }
     return 0;
 }
 ```
