@@ -12,9 +12,6 @@
 #include <stdlib.h>
 
 
-#define MALLOC malloc
-#define FREE free
-
 namespace open
 {
 
@@ -30,6 +27,20 @@ OpenBuffer::OpenBuffer(size_t capacity)
 OpenBuffer::~OpenBuffer()
 {
 	clear();
+}
+
+unsigned char* OpenBuffer::data() 
+{ 
+	if (offset_ + size_ <= cap_)
+	{
+		buffer_[offset_ + size_] = 0;
+	}
+	else
+	{
+		buffer_[cap_] = 0;
+		assert(false);
+	}
+	return buffer_ + offset_; 
 }
 
 void OpenBuffer::clear()
@@ -90,14 +101,14 @@ int64_t OpenBuffer::push(const void* data, size_t len)
 			{
 				cap_ *= 2;
 			}
-			buffer_ = new unsigned char[cap_ + 1];
+			buffer_ = new unsigned char[cap_ + 2];
 			if (!buffer_)
 			{
 				buffer_ = origin;
 				assert(false);
 				return -1;
 			}
-			memset(buffer_, 0, cap_ + 1);
+			memset(buffer_, 0, cap_ + 2);
 			if (origin)
 			{
 				if (size_ > 0)

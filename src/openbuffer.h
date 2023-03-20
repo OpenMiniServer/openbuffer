@@ -48,16 +48,18 @@ class OpenBuffer
 public:
 	OpenBuffer(size_t capacity = 256);
 	~OpenBuffer();
-	size_t inline size() { return size_; }
-	unsigned char* data() { return buffer_ + offset_; }
+
+	inline size_t cap() { return cap_; }
+	inline size_t size() { return size_; }
+	unsigned char* data();
 	void clear();
 	int64_t push(const void* data, size_t len);
-	int64_t push(const std::string& data) 
+	inline int64_t push(const std::string& data) 
 	{ 
 		return push(data.data(), data.size()); 
 	}
 	int64_t pop(void* data, size_t len);
-	int64_t pop(std::string& data, size_t len) 
+	inline int64_t pop(std::string& data, size_t len) 
 	{
 		data.resize(len);
 		return pop((void*)data.data(), data.size());
