@@ -46,18 +46,18 @@ using namespace open;
 
 int main()
 {
-    OpenBuffer openBuffer(256);
+    OpenBuffer openBuffer;
 
     char data[256] = "Hello OpenBuffer!";
     const std::string str = "Hello OpenLinyou!";
     
     size_t len = strlen(data);
-    openBuffer.push(&len, sizeof(len));
-    openBuffer.push(data, len);
+    openBuffer.pushBack(&len, sizeof(len));
+    openBuffer.pushBack(data, len);
  
     len = str.size();
-    openBuffer.pushUInt32(len);
-    openBuffer.push(str.data(), len);
+    openBuffer.pushUInt32((int)len);
+    openBuffer.pushBack(str.data(), len);
 
     openBuffer.pushUInt16(1616);
     openBuffer.pushUInt32(3232);
@@ -72,15 +72,15 @@ int main()
 
     std::vector<char> vectData;
     len = 0;
-    openBuffer.pop(&len, sizeof(len));
+    openBuffer.popFront(&len, sizeof(len));
     vectData.resize(len);
-    openBuffer.pop(vectData.data(), len);
+    openBuffer.popFront(vectData.data(), len);
     assert(memcmp(vectData.data(), data, len) == 0);
     
     char ret[256] = {};
     uint32_t len1 = 0;
     openBuffer.popUInt32(len1);
-    openBuffer.pop(ret, len1);
+    openBuffer.popFront(ret, len1);
     assert(str == ret);
     
     unsigned short u16 = 0;
@@ -93,7 +93,6 @@ int main()
     uint64_t u64 = 0;
     openBuffer.popUInt64(u64);
     assert(u64 == 6464);
-
 
     uint64_t v32 = 0;
     openBuffer.popVInt64(v32);
@@ -171,6 +170,30 @@ int main()
         std::string buffer;
         buffer.append((const char*)openBuffer.data(), openBuffer.size());
         assert(test == buffer);
+    }
+    return 0;
+}
+```
+
+## 3. 对二进制数据进行切割
+```C++
+#include <assert.h>
+#include <string.h>
+#include <string>
+#include <vector>
+#include "openbuffer.h"
+
+using namespace open;
+
+int main()
+{
+    char data[8] = {1, 2, 3, 4, 5, 6, 7, 8};
+    OpenSlice slice((unsigned char*)data, sizeof(data));
+    for (size_t i = 1; i < slice.size() + 1; i++)
+    {
+        char tmp = 0;
+        slice.popFront(&tmp, 1);
+        assert(tmp == i);
     }
     return 0;
 }

@@ -11,7 +11,6 @@
 #include <string.h>
 #include <stdlib.h>
 
-
 namespace open
 {
 
@@ -19,18 +18,32 @@ OpenBuffer::OpenBuffer(size_t capacity)
 	:size_(0),
 	offset_(0),
 	cap_(0),
-	miniCap_(capacity),
-	buffer_(NULL)
+	buffer_(NULL),
+	miniCap_(capacity)
 {
 }
 
 OpenBuffer::~OpenBuffer()
 {
 	clear();
+	if (buffer_)
+	{
+		delete buffer_;
+		buffer_ = NULL;
+	}
 }
 
 unsigned char* OpenBuffer::data() 
 { 
+	if (!buffer_)
+	{
+		assert(size_ == 0);
+		size_ = 0;
+		cap_ = miniCap_;
+		buffer_ = new unsigned char[cap_ + 2];
+		buffer_[0] = 0;
+		return buffer_;
+	}
 	if (offset_ + size_ <= cap_)
 	{
 		buffer_[offset_ + size_] = 0;
@@ -47,21 +60,11 @@ void OpenBuffer::clear()
 {
 	size_    = 0;
 	offset_  = 0;
-	cap_     = 0;
-	if (buffer_)
-	{
-		delete buffer_;
-		buffer_ = NULL;
-	}
+	//cap_     = 0;
 }
 
-int64_t OpenBuffer::pop(void* data, size_t len)
+int64_t OpenBuffer::popFront(void* data, size_t len)
 {
-	if (data == NULL || len <= 0) 
-	{
-		assert(false);
-		return -1;
-	}
 	if (size_ < len)
 	{
 		return -1;
@@ -71,14 +74,40 @@ int64_t OpenBuffer::pop(void* data, size_t len)
 		assert(false);
 		return -1;
 	}
-	memcpy(data, buffer_ + offset_, len);
+	if (data)
+	{
+		memcpy(data, buffer_ + offset_, len);
+	}
 	offset_ += len;
 	size_   -= len;
 	return size_;
 }
 
-int64_t OpenBuffer::push(const void* data, size_t len)
+int64_t OpenBuffer::popBack(void* data, size_t len)
 {
+	if (size_ < len)
+	{
+		return -1;
+	}
+	if (!buffer_)
+	{
+		assert(false);
+		return -1;
+	}
+	if (data)
+	{
+		memcpy(data, buffer_ + offset_ + size_ - len, len);
+	}
+	size_ -= len;
+	return size_;
+}
+
+int64_t OpenBuffer::pushBack(const void* data, size_t len)
+{
+	if (len == 0)
+	{
+		return size_;
+	}
 	size_t newSize = size_ + len;
 	int64_t leftCap = cap_ - offset_;
 	size_t offset = 0;
@@ -86,11 +115,18 @@ int64_t OpenBuffer::push(const void* data, size_t len)
 	{
 		if (buffer_ && newSize < cap_)
 		{
-			for (size_t i = 0; i < size_; i++)
+			if (offset_ > 0)
 			{
-				buffer_[i] = buffer_[offset_ + i];
+				for (size_t i = 0; i < size_; i++)
+				{
+					buffer_[i] = buffer_[offset_ + i];
+				}
+				memset(buffer_ + size_, 0, cap_ + 1 - size_);
 			}
-			memset(buffer_ + size_, 0, cap_ + 1 - size_);
+			else
+			{
+				assert(false);
+			}
 			offset = size_;
 		}
 		else
@@ -125,7 +161,10 @@ int64_t OpenBuffer::push(const void* data, size_t len)
 	{
 		offset = offset_ + size_;
 	}
-	memcpy(buffer_ + offset, data, len);
+	if (data)
+	{
+		memcpy(buffer_ + offset, data, len);
+	}
 	size_ += len;
 	return size_;
 }
@@ -158,7 +197,7 @@ int64_t OpenBuffer::pushVInt32(const uint32_t& n)
 		p[4] = (uint8_t)(n >> 28);
 		break;
 	}
-	return push(&p, strlen((const char*)p));
+	return pushBack(&p, strlen((const char*)p));
 }
 
 int64_t OpenBuffer::pushVInt64(const uint64_t& n)
@@ -175,7 +214,7 @@ int64_t OpenBuffer::pushVInt64(const uint64_t& n)
 		++i;
 	} while (num >= 0x80);
 	p[i] = (uint8_t)num;
-	return push(&p, strlen((const char*)p));
+	return pushBack(&p, strlen((const char*)p));
 }
 
 int64_t OpenBuffer::popVInt64(uint64_t& n)
@@ -208,6 +247,52 @@ int64_t OpenBuffer::popVInt64(uint64_t& n)
 		}
 	}
 	return -1;
+}
+
+
+//////////OpenSlice//////////////////////
+unsigned char* OpenSlice::data()
+{
+	if (!data_) return 0;
+	if (offset_ >= cap_)
+	{
+		assert(false);
+		return 0;
+	}
+	return data_ + offset_;
+}
+
+int64_t OpenSlice::popFront(void* data, size_t len)
+{
+	if (size_ < len) return -1;
+	if (!data_)
+	{
+		assert(false);
+		return -1;
+	}
+	if (data)
+	{
+		memcpy(data, data_ + offset_, len);
+	}
+	offset_ += len;
+	size_ -= len;
+	return size_;
+}
+
+int64_t OpenSlice::popBack(void* data, size_t len)
+{
+	if (size_ < len) return -1;
+	if (!data_)
+	{
+		assert(false);
+		return -1;
+	}
+	if (data)
+	{
+		memcpy(data, data_ + offset_ + size_ - len, len);
+	}
+	size_ -= len;
+	return size_;
 }
 
 };

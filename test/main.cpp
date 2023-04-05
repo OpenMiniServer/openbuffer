@@ -15,12 +15,12 @@ void test1()
     const std::string str = "Hello OpenLinyou!";
     
     size_t len = strlen(data);
-    openBuffer.push(&len, sizeof(len));
-    openBuffer.push(data, len);
+    openBuffer.pushBack(&len, sizeof(len));
+    openBuffer.pushBack(data, len);
  
     len = str.size();
     openBuffer.pushUInt32((int)len);
-    openBuffer.push(str.data(), len);
+    openBuffer.pushBack(str.data(), len);
 
     openBuffer.pushUInt16(1616);
     openBuffer.pushUInt32(3232);
@@ -35,15 +35,15 @@ void test1()
 
     std::vector<char> vectData;
     len = 0;
-    openBuffer.pop(&len, sizeof(len));
+    openBuffer.popFront(&len, sizeof(len));
     vectData.resize(len);
-    openBuffer.pop(vectData.data(), len);
+    openBuffer.popFront(vectData.data(), len);
     assert(memcmp(vectData.data(), data, len) == 0);
     
     char ret[256] = {};
     uint32_t len1 = 0;
     openBuffer.popUInt32(len1);
-    openBuffer.pop(ret, len1);
+    openBuffer.popFront(ret, len1);
     assert(str == ret);
     
     unsigned short u16 = 0;
@@ -98,7 +98,7 @@ void test2()
         std::string head;
         for (size_t i = 0; i < datas.size(); ++i)
         {
-            openBuffer.push(datas[i].data(), datas[i].size());
+            openBuffer.pushBack(datas[i].data(), datas[i].size());
             if (isHeader)
             {
                 unsigned char* tmp = openBuffer.data();
@@ -111,7 +111,7 @@ void test2()
                 if (k >= openBuffer.size() - 3) continue;
 
                 k += 4;
-                openBuffer.pop(head, k);
+                openBuffer.popFront(head, k);
                 isHeader = false;
             }
         }
@@ -120,13 +120,27 @@ void test2()
         buffer.append((const char*)openBuffer.data(), openBuffer.size());
         assert(test == buffer);
     }
-    printf("congratulation complete\n");
+}
+
+void test3()
+{
+    char data[8] = {1, 2, 3, 4, 5, 6, 7, 8};
+    OpenSlice slice((unsigned char*)data, sizeof(data));
+    for (size_t i = 1; i < slice.size() + 1; i++)
+    {
+        char tmp = 0;
+        slice.popFront(&tmp, 1);
+        assert(tmp == i);
+    }
 }
 
 int main()
 {
     test1();
     test2();
+    test3();
+    printf("congratulation complete\n");
+
     printf("Pause\n");
     return getchar();
 }

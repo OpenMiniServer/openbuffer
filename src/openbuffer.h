@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <string>
+//#include <vector>
 
 #ifndef DATA_BIG_ENDIAN
 #ifdef _BIG_ENDIAN_
@@ -40,6 +41,7 @@ namespace open
 
 class OpenBuffer 
 {
+public:
 	size_t size_;
 	size_t offset_;
 	size_t cap_;
@@ -49,30 +51,47 @@ public:
 	OpenBuffer(size_t capacity = 256);
 	~OpenBuffer();
 
+	void clear();
 	inline size_t cap() { return cap_; }
 	inline size_t size() { return size_; }
 	unsigned char* data();
-	void clear();
-	int64_t push(const void* data, size_t len);
-	inline int64_t push(const std::string& data) 
+	inline void setCap(size_t capacity) { miniCap_ = capacity; }
+
+	int64_t pushBack(const void* data, size_t len);
+	inline int64_t pushBack(const std::string& data) 
 	{ 
-		return push(data.data(), data.size()); 
+		return pushBack(data.data(), data.size());
 	}
-	int64_t pop(void* data, size_t len);
-	inline int64_t pop(std::string& data, size_t len) 
+	int64_t popFront(void* data, size_t len);
+	int64_t popBack(void* data, size_t len);
+	inline int64_t popFront(std::string& data, size_t len)
 	{
 		data.resize(len);
-		return pop((void*)data.data(), data.size());
+		return popFront((void*)data.data(), data.size());
 	};
+
+	inline int64_t pushString(const std::string& data)
+	{
+		pushUInt32((uint32_t)data.size());
+		return pushBack(data.data(), data.size());
+	}
+
+	inline int64_t popString(std::string& data)
+	{
+		uint32_t len = 0;
+		popUInt32(len);
+		data.resize(len);
+		return popFront((void*)data.data(), data.size());
+	}
 	
 	inline int64_t pushUInt8(unsigned char c)
 	{
-		return push(&c, 1);
+		return pushBack(&c, 1);
 	}
 
 	inline int64_t popUInt8(unsigned char& c)
 	{
-		return pop(&c, 1);
+		return popFront(&c, 1);
 	}
 
 	inline int64_t pushUInt16(unsigned short w)
@@ -84,13 +103,13 @@ public:
 #else
 		* (unsigned short*)(p) = w;
 #endif
-		return push(&p, sizeof(p));
+		return pushBack(&p, sizeof(p));
 	}
 
 	inline int64_t popUInt16(unsigned short& w)
 	{
 		char p[2] = {0};
-		int64_t ret = pop(p, sizeof(p));
+		int64_t ret = popFront(p, sizeof(p));
 		if (ret >= 0)
 		{
 #if DATA_BIG_ENDIAN
@@ -114,13 +133,13 @@ public:
 #else
 		* (uint32_t*)p = l;
 #endif
-		return push(&p, sizeof(p));
+		return pushBack(&p, sizeof(p));
 	}
 
 	inline int64_t popUInt32(uint32_t& l)
 	{
 		char p[4] = { 0 };
-		int64_t ret = pop(p, sizeof(p));
+		int64_t ret = popFront(p, sizeof(p));
 		if (ret >= 0)
 		{
 #if DATA_BIG_ENDIAN
@@ -150,13 +169,13 @@ public:
 #else
 		* (uint64_t*)p = l;
 #endif
-		return push(&p, sizeof(p));
+		return pushBack(&p, sizeof(p));
 	}
 
 	inline int64_t popUInt64(uint64_t& l)
 	{
 		char p[8] = { 0 };
-		int64_t ret = pop(p, sizeof(p));
+		int64_t ret = popFront(p, sizeof(p));
 		if (ret >= 0)
 		{
 #if DATA_BIG_ENDIAN
@@ -178,6 +197,99 @@ public:
 	int64_t pushVInt32(const uint32_t& n);
 	int64_t pushVInt64(const uint64_t& n);
 	int64_t popVInt64(uint64_t& n);
+};
+
+
+class OpenSlice
+{
+public:
+	size_t cap_;
+	size_t size_;
+	size_t offset_;
+	unsigned char* data_;
+public:
+	OpenSlice() : data_(0), size_(0), offset_(0), cap_(0) {}
+	OpenSlice(unsigned char* data, size_t size) : data_(data), size_(size), offset_(0), cap_(size) {}
+	inline void setData(unsigned char* data, size_t size)
+	{
+		size_ = size;
+		data_ = data;
+		offset_ = 0;
+		cap_ = size;
+	}
+	inline size_t size() { return size_; }
+	unsigned char* data();
+	int64_t popFront(void* data, size_t len);
+	int64_t popBack(void* data, size_t len);
+	inline int64_t popFront(std::string& data, size_t len)
+	{
+		data.resize(len);
+		return popFront((void*)data.data(), data.size());
+	};	
+	inline int64_t popString(std::string& data)
+	{
+		uint32_t len = 0;
+		popUInt32(len);
+		data.resize(len);
+		return popFront((void*)data.data(), data.size());
+	}
+	inline int64_t popUInt8(unsigned char& c)
+	{
+		return popFront(&c, 1);
+	}
+	inline int64_t popUInt16(unsigned short& w)
+	{
+		char p[2] = { 0 };
+		int64_t ret = popFront(p, sizeof(p));
+		if (ret >= 0)
+		{
+#if DATA_BIG_ENDIAN
+			w = *(const unsigned char*)(p + 1);
+			w = *(const unsigned char*)(p + 0) + (*w << 8);
+#else
+			w = *(const unsigned short*)p;
+#endif
+		}
+		return ret;
+	}
+	inline int64_t popUInt32(uint32_t& l)
+	{
+		char p[4] = { 0 };
+		int64_t ret = popFront(p, sizeof(p));
+		if (ret >= 0)
+		{
+#if DATA_BIG_ENDIAN
+			l = *(const unsigned char*)(p + 3);
+			l = *(const unsigned char*)(p + 2) + (*l << 8);
+			l = *(const unsigned char*)(p + 1) + (*l << 8);
+			l = *(const unsigned char*)(p + 0) + (*l << 8);
+#else 
+			l = *(const uint32_t*)p;
+#endif
+		}
+		return ret;
+	}
+	inline int64_t popUInt64(uint64_t& l)
+	{
+		char p[8] = { 0 };
+		int64_t ret = popFront(p, sizeof(p));
+		if (ret >= 0)
+		{
+#if DATA_BIG_ENDIAN
+			l = *(const unsigned char*)(p + 7);
+			l = *(const unsigned char*)(p + 6) + (*l << 8);
+			l = *(const unsigned char*)(p + 5) + (*l << 8);
+			l = *(const unsigned char*)(p + 4) + (*l << 8);
+			l = *(const unsigned char*)(p + 3) + (*l << 8);
+			l = *(const unsigned char*)(p + 2) + (*l << 8);
+			l = *(const unsigned char*)(p + 1) + (*l << 8);
+			l = *(const unsigned char*)(p + 0) + (*l << 8);
+#else 
+			l = *(const uint64_t*)p;
+#endif
+		}
+		return ret;
+	}
 };
 
 };
